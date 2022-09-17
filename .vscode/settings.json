@@ -1,0 +1,4 @@
+{
+    "go.goroot": "~/.g/go",
+    "go.inferGopath": false
+}

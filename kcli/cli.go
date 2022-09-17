@@ -6,6 +6,10 @@ import (
 	"github.com/spf13/cobra"
 )
 
+/*
+  Keeper的命令行参数解析
+*/
+
 type ICommand interface {
 	SetRootCommand(c *cobra.Command)
 	AddCommand(cmds ...*cobra.Command)

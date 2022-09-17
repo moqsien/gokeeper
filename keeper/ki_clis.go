@@ -74,8 +74,8 @@ func (that *Keeper) SetAppsToOperate(appNames []string) {
 	}
 }
 
-func (that *Keeper) SetExecutorToOperate(execName string) {
-	that.ExecutorToOperate = execName
+func (that *Keeper) SetCurrentExecutor(execName string) {
+	that.CurrentExecutor = execName
 }
 
 func (that *Keeper) ParseEnv(env string) {
@@ -195,7 +195,7 @@ func (that *Keeper) RunExecutors() {
 		})
 	} else if that.ProcMode == ktype.MultiProcs && !that.IsMaster() {
 		// 多进程模式下，且在子进程中，执行对应的Executor
-		if exec, existed := that.ExecutorList.Search(that.ExecutorToOperate); existed {
+		if exec, existed := that.ExecutorList.Search(that.CurrentExecutor); existed {
 			executor, ok := exec.(kexecutor.Executor)
 			if ok {
 				executor.StartAllApps()

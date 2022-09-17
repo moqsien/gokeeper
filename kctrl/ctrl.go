@@ -1,6 +1,7 @@
 package kctrl
 
 import (
+	"errors"
 	"fmt"
 	"net/http"
 
@@ -19,6 +20,8 @@ const (
 
 type ICtrlKeeper interface {
 	CtrlKeeperName() string
+	CtrlCurrentExecutor() string
+	CtrlIsMaster() bool
 }
 
 /*
@@ -42,8 +45,22 @@ func NewKeeperCtrl(k ICtrlKeeper) *KCtrl {
 	}
 }
 
-// 初始化Unix套接字，服务端和客户端都有用
+/*
+  InitSockPath 初始化Unix套接字，服务端和客户端都有用;
+  主进程中使用keeperName命名；
+  子进程中使用keeperName_ExecutorName命名。
+*/
 func (that *KCtrl) InitSockPath() {
-	that.UnixSockName = fmt.Sprintf("%s.sock", that.Keeper.CtrlKeeperName())
+	if that.Keeper.CtrlIsMaster() {
+		// 主进程中Unix套接字
+		that.UnixSockName = fmt.Sprintf("%s.sock", that.Keeper.CtrlKeeperName())
+	} else {
+		// 子进程中Unix套接字
+		executorName := that.Keeper.CtrlCurrentExecutor()
+		if executorName == "" {
+			panic(errors.New("子进程中没有传入ExecutorName, 正常情况下需要传入"))
+		}
+		that.UnixSockPath = fmt.Sprintf("%s_%s.sock", that.Keeper.CtrlKeeperName(), executorName)
+	}
 	that.UnixSockPath = gfile.TempDir(that.UnixSockName)
 }

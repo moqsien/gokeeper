@@ -8,7 +8,7 @@ import (
 
 type IKStartCmd interface {
 	SetAppsToOperate(names []string)
-	SetExecutorToOperate(execName string)
+	SetCurrentExecutor(execName string)
 	Config() *gcfg.Config
 	InitLogSetting(config *gcfg.Config) error
 	ParseConfig(config string)
@@ -54,7 +54,7 @@ func InitStartCmd(keeper ICommand) {
 			keeper.ParseConfig(kconfig)
 		}
 		if kexecutor, err := c.Flags().GetString("executor"); err == nil {
-			keeper.SetExecutorToOperate(kexecutor)
+			keeper.SetCurrentExecutor(kexecutor) // 开启子进程时传入要运行的ExecutorName
 		}
 		if kenv, err := c.Flags().GetString("env"); err == nil {
 			keeper.ParseEnv(kenv)

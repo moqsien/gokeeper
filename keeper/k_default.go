@@ -19,7 +19,7 @@ func SetName(name string) {
 
 // Setup 启动服务
 func Setup(startFunction StartFunc) {
-	DefaultKeeper.Setup(startFunction)
+	DefaultKeeper.SetupStartFunc(startFunction)
 }
 
 // CloseCtrl 关闭ctrl管理功能

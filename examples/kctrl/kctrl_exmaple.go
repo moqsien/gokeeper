@@ -14,9 +14,11 @@ import (
 */
 
 type FakeKeeper struct {
-	Name    string
-	CServer *kctrl.KCtrl
-	CClient *kctrl.KCtrl
+	Name            string
+	CurrentExecutor string
+	IsMaster        bool
+	CServer         *kctrl.KCtrl
+	CClient         *kctrl.KCtrl
 }
 
 var Info string = "test_info"
@@ -27,6 +29,14 @@ const (
 
 func (k *FakeKeeper) CtrlKeeperName() string {
 	return k.Name
+}
+
+func (that *FakeKeeper) CtrlCurrentExecutor() string {
+	return that.CurrentExecutor
+}
+
+func (that *FakeKeeper) CtrlIsMaster() bool {
+	return that.IsMaster
 }
 
 func (k *FakeKeeper) AddRoutes() {
@@ -43,8 +53,7 @@ func (k *FakeKeeper) AddCommand() {
 			Name: "info",
 			Help: "keeper info",
 			Func: func(c *ishell.Context) {
-				params := kctrl.ParamsContainer{}
-				result, err := k.CClient.CtrlGetStr(InfoPath, params)
+				result, err := k.CClient.CtrlGetStr(InfoPath, nil)
 				if result != Info || err != nil {
 					c.Printf("!!!Error Occurred!!! [Result]%s [Error] %v", result, err)
 					return
@@ -57,7 +66,9 @@ func (k *FakeKeeper) AddCommand() {
 }
 
 var Default = &FakeKeeper{
-	Name: "default",
+	Name:            "default",
+	IsMaster:        true,
+	CurrentExecutor: "test",
 }
 
 func main() {

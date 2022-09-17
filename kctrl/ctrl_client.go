@@ -30,15 +30,17 @@ func (that *KCtrl) InitClient() {
 
 type ParamsContainer map[string]string
 
-func (that *KCtrl) CtrlGetStr(urlPath string, params ParamsContainer) (string, error) {
+func (that *KCtrl) CtrlGetStr(urlPath string, params *ParamsContainer) (string, error) {
 	if that.KcMode == CtrlClient {
 		urlPath = strings.Trim(urlPath, "/")
 		paramStr := ""
-		for k, v := range params {
-			if len(paramStr) == 0 {
-				paramStr += fmt.Sprintf("?%s=%s", k, v)
-			} else {
-				paramStr += fmt.Sprintf("&%s=%s", k, v)
+		if params != nil {
+			for k, v := range *params {
+				if len(paramStr) == 0 {
+					paramStr += fmt.Sprintf("?%s=%s", k, v)
+				} else {
+					paramStr += fmt.Sprintf("&%s=%s", k, v)
+				}
 			}
 		}
 		resp, _ := that.Get(fmt.Sprintf("http://%s/%s/%s", that.UnixSockName, urlPath, paramStr))

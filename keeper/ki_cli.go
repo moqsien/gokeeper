@@ -236,6 +236,11 @@ func (that *Keeper) RunKeeper() {
 	// TODO: 设置优雅退出时候需要做的工作
 	// that.Graceful.SetShutdown(15*time.Second, that.FirstStop, that.BeforeExiting)
 
+	// 启动交互式shell的服务端
+	if that.CanCtrl {
+		go that.StartCtrlAsServer()
+	}
+
 	// 执行ExecutorList中的Executor
 	that.RunExecutors()
 

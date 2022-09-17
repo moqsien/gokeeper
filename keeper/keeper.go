@@ -28,13 +28,12 @@ type StopFunc func(k *Keeper) bool
 // Keeper 微服务管理者
 type Keeper struct {
 	*cobra.Command                        // 命令行参数解析
-	*process.ProcManager                  // 进程管理者
+	*process.ProcManager                  // 进程管理者：保存已经启动的子进程，一个子进程对应一个Executor, key是ExecutorName，可以获取子进程PID
 	KeeperName           string           // 微服务管理者keeper的名称
 	KeeperIsMaster       bool             // 是否为主进程
 	KConfigPath          string           // 配置文件路径
 	KConfig              *gcfg.Config     // keeper的配置信息
 	ExecutorList         *gtree.AVLTree   // Executor列表
-	ExecutorsRunningList *gtree.AVLTree   // 正在运行Executor列表
 	CurrentExecutor      string           // 子进程中正在执行的Executor
 	AppsToOperate        *garray.StrArray // 需要启动或停止的App的名称列表
 	PidFilePath          string           // 主进程的pid文件保存路径
@@ -107,10 +106,10 @@ func (that *Keeper) Shutdown(timeout ...time.Duration) {
 	// that.graceful.shutdownSingle(timeout...)
 }
 
-// SetupStartFunc 启动服务，并执行传入的启动方法
+// SetupStartFunc 启动服务，并执行传入的启动方法；startFunction: 启动时需要执行的方法
 func (that *Keeper) SetupStartFunc(startFunction StartFunc) {
 	if that.CanCtrl {
-		// 开启交互式shell
+		// 开启交互式shell的客户端
 		if len(os.Args) > 1 && os.Args[1] == "ctrl" {
 			os.Args = append(os.Args[0:1], os.Args[2:]...)
 			_ = logger.SetLevelStr("ERROR")
@@ -119,19 +118,22 @@ func (that *Keeper) SetupStartFunc(startFunction StartFunc) {
 		}
 	}
 
-	// 如果启动进程的时候未传入任何参数，则默认使用start
+	// 如果启动进程的时候未传入任何命令，则默认使用start
 	if len(os.Args) == 1 {
 		os.Args = append(os.Args, "start")
 	}
 	// 启动用户启动方法
 	that.StartFunction = startFunction
 
-	// 解析命令行参数，并路由参数执行逻辑
+	/*
+	  解析命令行，并根据参数执行start命令;
+	  在start命令中启动交互式shell的服务端: Keeper.RunKeeper方法中；
+	*/
 	err := that.Execute()
 	if err != nil {
 		that.Help()
 		os.Exit(0)
 	}
-	//监听重启信号
+	// 监听重启信号
 	// that.graceful.graceSignal()
 }

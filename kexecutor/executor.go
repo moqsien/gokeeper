@@ -20,6 +20,7 @@ import (
 	logger "github.com/moqsien/processes/logger"
 )
 
+// Keeper实现本接口的方法在ki_executor.go中
 type IKeeper interface {
 	Config() *gcfg.Config
 	IsMaster() bool

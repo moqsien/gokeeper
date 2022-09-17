@@ -18,6 +18,7 @@ const (
 	CtrlClient  CtrlMode = 2
 )
 
+// Keeper实现本接口的相关实现方法在ki_ctrl_.go中
 type ICtrlKeeper interface {
 	CtrlKeeperName() string
 	CtrlCurrentExecutor() string

@@ -10,6 +10,7 @@ import (
   Keeper的命令行参数解析
 */
 
+// Keeper实现本接口的方法在ki_cli.go中
 type ICommand interface {
 	SetRootCommand(c *cobra.Command)
 	AddCommand(cmds ...*cobra.Command)

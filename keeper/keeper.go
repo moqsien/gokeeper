@@ -12,8 +12,8 @@ import (
 	"github.com/gogf/gf/os/gtime"
 	"github.com/gogf/gf/util/gutil"
 	kcli "github.com/moqsien/gokeeper/kcli"
-	kctrl "github.com/moqsien/gokeeper/kctrl"
 	ktype "github.com/moqsien/gokeeper/ktype"
+	goktrl "github.com/moqsien/goktrl"
 	process "github.com/moqsien/processes"
 	logger "github.com/moqsien/processes/logger"
 	"github.com/spf13/cobra"
@@ -43,7 +43,10 @@ type Keeper struct {
 	Exiting              bool             // keeper正在关闭
 	BeforeStopFunc       StopFunc         // 服务关闭之前执行该方法
 	CanCtrl              bool             // 是否开启交互式shell功能，默认true
-	Controller           *kctrl.KCtrl     // 交互式shell：可以根据需要初始化为服务端或者客户端两种模式
+	KCtrl                *goktrl.Ktrl     // 交互式shell
+	KCtrlSocket          string           // 默认Unix套接字名称
+	IsCtrlInitiated      bool             // KCtrl是否已经初始化
+	// Controller           *kctrl.KCtrl     // 交互式shell：可以根据需要初始化为服务端或者客户端两种模式
 	// InheritAddrList      []grace.InheritAddr // 多进程模式，开启平滑重启逻辑模式下需要监听的列表
 	// Graceful             *graceful.Graceful
 }
@@ -56,18 +59,10 @@ func NewKeeper(name string) *Keeper {
 		AppsToOperate:  garray.NewStrArray(true),
 		ProcManager:    process.NewProcManager(),
 		KeeperIsMaster: genv.GetVar(ktype.EnvIsMaster, true).Bool(), // 通过环境变量判断是否是在主进程中执行
-		CanCtrl:        true,
+		CanCtrl:        genv.GetVar(ktype.EnvCanCtrl, true).Bool(),
+		KCtrl:          goktrl.NewKtrl(),
 	}
-
-	// 初始化命令行
-	svr.InitCli()
-
-	/*
-	  初始化交互式命令对象;
-	  注意：主进程和子进程的Unix套接字命名方式不同；
-	  注意：子进程中只需要初始化交互式shell的服务端。
-	*/
-	svr.Controller = kctrl.NewKeeperCtrl(svr)
+	svr.InitCli() // 初始化命令行
 	return svr
 }
 
@@ -106,14 +101,21 @@ func (that *Keeper) Shutdown(timeout ...time.Duration) {
 	// that.graceful.shutdownSingle(timeout...)
 }
 
-// SetupStartFunc 启动服务，并执行传入的启动方法；startFunction: 启动时需要执行的方法
+/*
+  SetupStartFunc 启动服务，并执行传入的启动方法；
+  本方法是用户执行的起始入口；
+  参数startFunction: 启动时需要执行的方法；
+*/
 func (that *Keeper) SetupStartFunc(startFunction StartFunc) {
 	if that.CanCtrl {
-		// 开启交互式shell的客户端
+		// 是否启动交互式shell
 		if len(os.Args) > 1 && os.Args[1] == "ctrl" {
 			os.Args = append(os.Args[0:1], os.Args[2:]...)
 			_ = logger.SetLevelStr("ERROR")
-			that.StartCtrlAsClient()
+			// 初始化Ktrl
+			that.InitKtrl()
+			// 交互式shell启动
+			that.KCtrl.RunShell(that.KeeperName)
 			return
 		}
 	}

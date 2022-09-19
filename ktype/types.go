@@ -23,6 +23,7 @@ const (
 
 const (
 	EnvIsMaster             = "ENV_MULTI_MASTER"                    // 多进程模式下，主进程的标记用环境变量名
+	EnvCanCtrl              = "ENV_CAN_CTRL"                        // 是否开启交互式shell功能
 	EnvIsChild              = "GRACEFUL_IS_CHILD"                   // 当前是否是在子进程
 	ParentAddrKey           = "GRACEFUL_INHERIT_LISTEN_PARENT_ADDR" // 父进程的监听列表
 	AdminActionReloadEnvKey = "GF_SERVER_RELOAD"                    // gf框架的ghttp服务平滑重启key

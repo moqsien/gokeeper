@@ -8,7 +8,7 @@ import (
 )
 
 // 默认Keeper
-var DefaultKeeper = NewKeeper(fmt.Sprintf("Keepr_%s", gfile.Basename(os.Args[0])))
+var DefaultKeeper = NewKeeper(fmt.Sprintf("Keeper_%s", gfile.Basename(os.Args[0])))
 
 // SetName 设置Keeper名
 // 建议设置独特个性化的引用名，因为管理链接，日志目录等地方会用到它。

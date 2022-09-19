@@ -185,16 +185,17 @@ func (that *Keeper) CheckKeeperForStart() {
 */
 func (that *Keeper) RunExecutors() {
 	if that.IsMutilProcModeAndInMaster() {
-		// TODO: 多进程模式下，且在主进程中，创建新的子进程
+		// 多进程模式下，且在主进程中，新建子进程来执行所有Executor
+		// TODO: 多进程模式下，平滑重启文件描述符继承
 		// err := that.inheritListenerList()
 		that.ExecutorList.Iterator(func(_ interface{}, v interface{}) bool {
 			ke := v.(*kexecutor.Executor)
-			// 会将对应的Executor名称和需要启动的App传给子进程
+			// 会将对应的Executor名称和需要启动的App传给子进程，注意，并不一定是启动所有的App
 			ke.NewChildProcForStart(that.KConfigPath)
 			return true
 		})
 	} else if that.ProcMode == ktype.MultiProcs && !that.IsMaster() {
-		// 多进程模式下，且在子进程中，执行对应的Executor
+		// 多进程模式下，且在子进程中，执行对应的Executor中的所有App
 		if exec, existed := that.ExecutorList.Search(that.CurrentExecutor); existed {
 			executor, ok := exec.(kexecutor.Executor)
 			if ok {
@@ -238,7 +239,8 @@ func (that *Keeper) RunKeeper() {
 
 	// 启动交互式shell的服务端
 	if that.CanCtrl {
-		go that.StartCtrlAsServer()
+		that.InitKtrl()
+		go that.KCtrl.RunCtrl()
 	}
 
 	// 执行ExecutorList中的Executor

@@ -9,6 +9,13 @@ import "time"
 // 进程模式ProcMode
 type ProcMode int
 
+func (that ProcMode) String() string {
+	if that == MultiProcs {
+		return "multi"
+	}
+	return "single"
+}
+
 const (
 	MultiProcs ProcMode = 1 // 多进程模式
 	SingleProc ProcMode = 2 // 单进程模式

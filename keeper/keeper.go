@@ -11,7 +11,9 @@ import (
 	"github.com/gogf/gf/os/genv"
 	"github.com/gogf/gf/os/gtime"
 	"github.com/gogf/gf/util/gutil"
+	"github.com/moqsien/gokeeper/kapp"
 	kcli "github.com/moqsien/gokeeper/kcli"
+	"github.com/moqsien/gokeeper/kexecutor"
 	ktype "github.com/moqsien/gokeeper/ktype"
 	goktrl "github.com/moqsien/goktrl"
 	process "github.com/moqsien/processes"
@@ -138,4 +140,27 @@ func (that *Keeper) SetupStartFunc(startFunction StartFunc) {
 	}
 	// 监听重启信号
 	// that.graceful.graceSignal()
+}
+
+/*
+  AddAppToExecutor 向Executor中添加App；executorName执行器名称作为可选参数；
+  如果传入了executorName，则使用相应的Executor；
+  如果未传入executorName，则使用与Keeper同名的默认Executor；
+  如果要使用的Executor不存在，则先创建；
+  本方法主要是在用户编写的startFunction中调用，以便将用户编写的App加入到对应的Executor中；
+*/
+func (that *Keeper) AddAppToExecutor(app kapp.IApp, executorName ...string) {
+	eName := that.KeeperName
+	if len(executorName) > 0 && len(executorName[0]) > 0 {
+		eName = executorName[0]
+	}
+
+	if that.ExecutorList.Contains(eName) {
+		executor := that.ExecutorList.Get(eName).(*kexecutor.Executor)
+		executor.AddApp(app)
+	} else {
+		executor := kexecutor.NewExecutor(eName, that)
+		executor.AddApp(app)
+		that.ExecutorList.Set(eName, executor)
+	}
 }

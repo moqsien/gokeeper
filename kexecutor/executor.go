@@ -15,7 +15,7 @@ import (
 	"github.com/gogf/gf/util/gconv"
 	"github.com/gogf/gf/util/gutil"
 	kapp "github.com/moqsien/gokeeper/kapp"
-	"github.com/moqsien/gokeeper/ktype"
+	ktype "github.com/moqsien/gokeeper/ktype"
 	process "github.com/moqsien/processes"
 	logger "github.com/moqsien/processes/logger"
 )
@@ -36,9 +36,11 @@ Executor 用于保存和运行App；一个Executor可以保存多个App。
 在单进程模式下，EXecutor只会开启新的goroute来运行行App，所有的goroutine都在一个进程中。
 */
 type Executor struct {
-	Keeper  IKeeper        // Executor所属的管理者
-	Name    string         // 执行器名称
-	AppList *gtree.AVLTree // 保存的App列表，key: appName, value: appContainer
+	Keeper      IKeeper          // Executor所属的管理者
+	Name        string           // 执行器名称
+	AppList     *gtree.AVLTree   // 保存的App列表，key: appName, value: appContainer
+	AppsRunning *garray.StrArray // 当前正在运行中的App
+	Pid         int              // 在主进程中，缓存Executor对应的子进程的Pid
 }
 
 /*
@@ -46,9 +48,10 @@ Executor工厂
 */
 func NewExecutor(execName string, k IKeeper) *Executor {
 	return &Executor{
-		Keeper:  k,
-		Name:    execName,
-		AppList: gtree.NewAVLTree(gutil.ComparatorString, true),
+		Keeper:      k,
+		Name:        execName,
+		AppList:     gtree.NewAVLTree(gutil.ComparatorString, true),
+		AppsRunning: garray.NewStrArray(true),
 	}
 }
 
@@ -201,7 +204,7 @@ func (that *Executor) StartApp(name string) error {
   StartApps
   启动Executor中需要启动的App；
   多进程模式下，本方法在子进程中执行；
-  单进程模式下，笨方法在主进程中执行(因为只有一个进程)；
+  单进程模式下，本方法在主进程中执行(因为只有一个进程)；
 */
 func (that *Executor) StartAllApps() {
 	for name, app := range that.AppList.Map() {
@@ -219,10 +222,13 @@ func (that *Executor) StartAllApps() {
 		a.State = process.Running
 		// 尝试启动App
 		go func(a1 *kapp.AppContainer) {
-			e := a1.App.Execute()
-			if e != nil && a1.State != process.Stopping {
+			err := a1.App.Execute()
+			if err != nil && a1.State != process.Stopping {
 				a1.State = process.Stopped
-				logger.Warningf("App:[%v] Start Fails: %v", a1.App.AppName(), e)
+				logger.Warningf("App:[%v] Start Fails: %v", a1.App.AppName(), err)
+			} else {
+				// 在当前子进程的运行Executor中记录已运行的app
+				that.AppsRunning.Append(a1.App.AppName())
 			}
 		}(a)
 	}
@@ -314,21 +320,9 @@ func (that *Executor) NewChildProcForStart(configFilePath string) {
 		  异步开启新的子进程；一个goroutine(在StartProc中实现)对应一个子进程，
 		*/
 		p.StartProc(true)
-	}
-}
-
-// Start Executor 执行的调用入口
-func (that *Executor) Start(configFilePath string) {
-	if that.Keeper.IsMaster() && that.Keeper.Mode() == ktype.MultiProcs {
-		/*
-		  在多进程模式下，且在主进程中，创建并启动新的子进程
-		*/
-		that.NewChildProcForStart(configFilePath)
-	} else {
-		/*
-		  1、在多进程模式下，且在子进程中，启动所有需要启动的App；
-		  2、在单进程模式下，直接在主进程中启动所有需要启动的App；
-		*/
-		that.StartAllApps()
+		// 主进程中，保存已启动的App列表
+		that.AppsRunning.Append(appNameList...)
+		// 主进程中，保存对应的子进程的Pid
+		that.Pid = p.Process.Pid
 	}
 }

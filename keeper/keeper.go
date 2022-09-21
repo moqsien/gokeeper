@@ -78,6 +78,10 @@ func (that *Keeper) IsMutilProcModeAndInMaster() bool {
 	return that.ProcMode == ktype.MultiProcs && that.IsMaster()
 }
 
+func (that *Keeper) IsSingleProcMode() bool {
+	return that.ProcMode == ktype.SingleProc
+}
+
 // 将主进程的pid写入pid文件
 func (that *Keeper) PutMasterPidInFile() {
 	pid := os.Getpid()

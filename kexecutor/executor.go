@@ -218,19 +218,23 @@ func (that *Executor) StartAllApps() {
 			that.RemoveApp(gconv.String(name))
 			continue
 		}
-		a.StartTime = gtime.Now()
-		a.State = process.Running
-		// 尝试启动App
-		go func(a1 *kapp.AppContainer) {
-			err := a1.App.Execute()
-			if err != nil && a1.State != process.Stopping {
-				a1.State = process.Stopped
-				logger.Warningf("App:[%v] Start Fails: %v", a1.App.AppName(), err)
-			} else {
-				// 在当前子进程的运行Executor中记录已运行的app
-				that.AppsRunning.Append(a1.App.AppName())
-			}
-		}(a)
+
+		// 判断是否app已经在运行
+		if a.State != process.Running {
+			a.StartTime = gtime.Now()
+			a.State = process.Running
+			// 尝试启动App
+			go func(a1 *kapp.AppContainer) {
+				err := a1.App.Execute()
+				if err != nil && a1.State != process.Stopping {
+					a1.State = process.Stopped
+					logger.Warningf("App:[%v] Start Fails: %v", a1.App.AppName(), err)
+				} else {
+					// 在当前子进程的运行Executor中记录已运行的app
+					that.AppsRunning.Append(a1.App.AppName())
+				}
+			}(a)
+		}
 	}
 }
 

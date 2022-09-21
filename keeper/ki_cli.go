@@ -197,9 +197,10 @@ func (that *Keeper) RunExecutors() {
 	} else if that.ProcMode == ktype.MultiProcs && !that.IsMaster() {
 		// 多进程模式下，且在子进程中，执行对应的Executor中的所有App
 		if exec, existed := that.ExecutorList.Search(that.CurrentExecutor); existed {
-			executor, ok := exec.(kexecutor.Executor)
+			ke, ok := exec.(kexecutor.Executor)
 			if ok {
-				executor.StartAllApps()
+				ke.StartAllApps()
+				ke.Pid = os.Getpid()
 			}
 		}
 	} else {
@@ -207,6 +208,7 @@ func (that *Keeper) RunExecutors() {
 		that.ExecutorList.Iterator(func(_ interface{}, v interface{}) bool {
 			ke := v.(*kexecutor.Executor)
 			ke.StartAllApps()
+			ke.Pid = os.Getpid()
 			return true
 		})
 	}

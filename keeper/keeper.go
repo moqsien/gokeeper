@@ -13,7 +13,7 @@ import (
 	"github.com/gogf/gf/util/gutil"
 	"github.com/moqsien/gokeeper/kapp"
 	kcli "github.com/moqsien/gokeeper/kcli"
-	"github.com/moqsien/gokeeper/kexecutor"
+	kexecutor "github.com/moqsien/gokeeper/kexecutor"
 	ktype "github.com/moqsien/gokeeper/ktype"
 	goktrl "github.com/moqsien/goktrl"
 	process "github.com/moqsien/processes"
@@ -39,7 +39,7 @@ type Keeper struct {
 	CurrentExecutor      string           // 子进程中正在执行的Executor
 	AppsToOperate        *garray.StrArray // 需要启动或停止的App的名称列表
 	PidFilePath          string           // 主进程的pid文件保存路径
-	ProcMode             ktype.ProcMode   // 进程模式，MultiProcs:多进程模式；SingleProc:单进程模式
+	ProcMode             ktype.ProcMode   // 进程模式，MultiProcs:多进程模式；SingleProc:单进程模式, 默认单进程
 	StartFunction        StartFunc        // keeper启动方法
 	StartTime            *gtime.Time      // keeper启动时间
 	Exiting              bool             // keeper正在关闭
@@ -163,4 +163,9 @@ func (that *Keeper) AddAppToExecutor(app kapp.IApp, executorName ...string) {
 		executor.AddApp(app)
 		that.ExecutorList.Set(eName, executor)
 	}
+}
+
+// 是否开启多进程模式，也是由用户在startFunction中调用，开启多进程模式
+func (that *Keeper) EnableMultiProc() {
+	that.ProcMode = ktype.MultiProcs
 }

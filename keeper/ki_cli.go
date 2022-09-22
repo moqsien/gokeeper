@@ -190,7 +190,8 @@ func (that *Keeper) RunExecutors() {
 		// err := that.inheritListenerList()
 		that.Manager.Iterator(func(_ string, v interface{}) bool {
 			ke := v.(*kexecutor.Executor)
-			// 会将对应的Executor名称和需要启动的App传给子进程，注意，并不一定是启动所有的App
+			// NewChildProcForStart方法会将对应的Executor名称和需要启动的App传给子进程，注意，并不一定是启动所有的App；
+			// 如果当前迭代到的Executor中没有找到需要执行的App，则当前Executor不会执行；
 			ke.NewChildProcForStart(that.KConfigPath)
 			// 新启动的Executor加入正在运行Executors列表
 			that.ExecutorsRunning.Set(ke.Name, ke)
@@ -247,7 +248,7 @@ func (that *Keeper) RunKeeper() {
 		go that.KCtrl.RunCtrl()
 	}
 
-	// 执行ExecutorList中的Executor
+	// 执行Manager中的Executor
 	that.RunExecutors()
 
 	if that.ProcMode == ktype.SingleProc || that.IsMutilProcModeAndInMaster() {

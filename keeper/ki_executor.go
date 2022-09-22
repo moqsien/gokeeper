@@ -2,6 +2,7 @@ package keeper
 
 import (
 	"github.com/gogf/gf/container/garray"
+	"github.com/gogf/gf/container/gmap"
 	"github.com/gogf/gf/os/gcfg"
 	ktype "github.com/moqsien/gokeeper/ktype"
 	process "github.com/moqsien/processes"
@@ -28,4 +29,8 @@ func (that *Keeper) Mode() ktype.ProcMode {
 
 func (that *Keeper) ProcManager() *process.Manager {
 	return that.Manager
+}
+
+func (that *Keeper) GetExecutorsRunning() *gmap.StrAnyMap {
+	return that.ExecutorsRunning
 }

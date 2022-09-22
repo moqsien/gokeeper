@@ -27,6 +27,7 @@ type IKeeper interface {
 	Mode() ktype.ProcMode
 	NewProcess(name string, opts ...process.Option) (*process.ProcessPlus, error)
 	ProcManager() *process.Manager
+	GetExecutorsRunning() *gmap.StrAnyMap
 }
 
 /*
@@ -62,6 +63,19 @@ func (that *Executor) Clone() (process.IProc, error) {
 	proc, err := that.ProcessPlus.Clone()
 	e.ProcessPlus, _ = proc.(*process.ProcessPlus)
 	return e, err
+}
+
+// GracefulReload 平滑重启Executor
+func (that *Executor) GracefulReload(wait bool) (bool, error) {
+	execClone, err := that.Clone()
+	if err != nil {
+		return false, err
+	}
+	execClone.StartProc(wait)
+	that.Keeper.ProcManager().Add(that.Name, execClone)
+	that.Keeper.GetExecutorsRunning().Set(that.Name, execClone)
+	that.StopProc(wait)
+	return true, nil
 }
 
 /* TODO:
@@ -166,7 +180,9 @@ func (that *Executor) RemoveApp(name string) {
 		err := that.StopApp(name)
 		if err != nil {
 			logger.Error(err)
+			return
 		}
+		that.AppsRunning.Remove(name)
 	}
 }
 
@@ -243,10 +259,10 @@ func (that *Executor) StartAllApps() {
 				if err != nil && a1.State != process.Stopping {
 					a1.State = process.Stopped
 					logger.Warningf("App:[%v] Start Fails: %v", a1.App.AppName(), err)
-				} else {
-					// 在当前子进程的运行Executor中记录已运行的app
-					that.AppsRunning.Set(a1.App.AppName(), struct{}{})
+					return
 				}
+				// 在当前子进程的运行Executor中记录已运行的app
+				that.AppsRunning.Set(a1.App.AppName(), struct{}{})
 			}(a)
 		}
 	}
@@ -331,7 +347,9 @@ func (that *Executor) NewChildProcForStart(configFilePath string) {
 			process.ProcStopSignal("SIGQUIT", "SIGTERM"),
 			process.ProcStopWaitSecs(int(ktype.MinShutdownTimeout/time.Second)))
 		if e != nil {
+			// 创建子进程失败
 			logger.Warning(e)
+			return
 		}
 
 		/*

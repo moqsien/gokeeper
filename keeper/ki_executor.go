@@ -26,6 +26,6 @@ func (that *Keeper) Mode() ktype.ProcMode {
 	return that.ProcMode
 }
 
-func (that *Keeper) Manager() *process.ProcManager {
-	return that.ProcManager
+func (that *Keeper) ProcManager() *process.Manager {
+	return that.Manager
 }

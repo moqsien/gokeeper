@@ -12,10 +12,10 @@ import (
 
 // StartExecutor 交互式shell开启Executor，只在主进程中执行
 func (that *Keeper) StartExecutor(execName string, appNames ...string) (r string) {
-	if proc := that.ProcManager.Find(execName); proc != nil {
+	if _, ok := that.Manager.Search(execName); !ok {
 		r = fmt.Sprintf("Executor: [%s] is already running", execName)
 	} else {
-		executor, _ := that.ExecutorList.Search(execName)
+		executor, _ := that.Manager.Search(execName)
 		if that.IsMutilProcModeAndInMaster() {
 			that.SetAppsToOperate(appNames)
 			executor.(*kexecutor.Executor).NewChildProcForStart(that.KConfigPath)

@@ -16,7 +16,7 @@ import (
 
 func (that *Keeper) KCtrlCheckExecutor(k *goktrl.KtrlContext) bool {
 	eName := k.Parser.GetOpt("executor")
-	_, ok := that.ExecutorList.Search(eName)
+	_, ok := that.Manager.Search(eName)
 	if !ok {
 		fmt.Printf("Executor: [%s] does not exist", eName)
 	}
@@ -68,7 +68,7 @@ func (that *Keeper) kCtrlInfo() {
 	}
 
 	handler := func(c *gin.Context) {
-		that.ExecutorList.Iterator(func(_ interface{}, v interface{}) bool {
+		that.Manager.Iterator(func(_ string, v interface{}) bool {
 			executor := v.(*kexecutor.Executor)
 			Result = append(Result, &Data{
 				Keeper:     that.KeeperName,
@@ -101,9 +101,9 @@ func (that *Keeper) kCtrlInfo() {
 // KtrlStartExecutor 启动一个Executor，可以指定启动一部分app
 func (that *Keeper) KtrlStartExecutor() {
 	start := func(k *goktrl.KtrlContext) {
-		// 单进程不能启动Executor
+		// 单进程不能启动新Executor
 		if that.IsSingleProcMode() {
-			fmt.Println("Cannot start an executor in single-process mode!")
+			fmt.Println("Single-process mode!")
 			return
 		}
 		// 必须传入存在的Executor名称
@@ -126,7 +126,7 @@ func (that *Keeper) KtrlStartExecutor() {
 
 	that.KCtrl.AddKtrlCommand(&goktrl.KCommand{
 		Name: "startexc",
-		Help: "【Start an Executor】 Usage: startexc -e=<executor> [-a=<app,app1>]",
+		Help: "【Start a not running Executor】 Usage: startexc -e=<executor> [-a=<app,app1>]",
 		Func: start,
 		Opts: &g.MapStrBool{
 			"executor,e": true,
@@ -146,7 +146,7 @@ func (that *Keeper) KtrlStartApps() {
 				return
 			}
 		} else {
-
+			// 单进程模式下启动apps，无需传入Executor名称
 		}
 	}
 	handler := func(c *gin.Context) {

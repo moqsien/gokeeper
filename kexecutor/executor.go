@@ -8,12 +8,11 @@ import (
 	"time"
 
 	"github.com/gogf/gf/container/garray"
-	"github.com/gogf/gf/container/gtree"
+	"github.com/gogf/gf/container/gmap"
 	"github.com/gogf/gf/errors/gerror"
 	"github.com/gogf/gf/os/gcfg"
 	"github.com/gogf/gf/os/gtime"
 	"github.com/gogf/gf/util/gconv"
-	"github.com/gogf/gf/util/gutil"
 	kapp "github.com/moqsien/gokeeper/kapp"
 	ktype "github.com/moqsien/gokeeper/ktype"
 	process "github.com/moqsien/processes"
@@ -27,7 +26,7 @@ type IKeeper interface {
 	ListOfAppsToStart() *garray.StrArray
 	Mode() ktype.ProcMode
 	NewProcess(name string, opts ...process.Option) (*process.ProcessPlus, error)
-	Manager() *process.ProcManager
+	ProcManager() *process.Manager
 }
 
 /*
@@ -36,28 +35,38 @@ Executor 用于保存和运行App；一个Executor可以保存多个App。
 在单进程模式下，EXecutor只会开启新的goroute来运行行App，所有的goroutine都在一个进程中。
 */
 type Executor struct {
-	Keeper      IKeeper          // Executor所属的管理者
-	Name        string           // 执行器名称
-	AppList     *gtree.AVLTree   // 保存的App列表，key: appName, value: appContainer
-	AppsRunning *garray.StrArray // 当前正在运行中的App
-	Pid         int              // 在主进程中，缓存Executor对应的子进程的Pid
+	*process.ProcessPlus                 // Executor 对应的进程
+	Pid                  int             // 在主进程中，缓存Executor对应的子进程的Pid
+	Keeper               IKeeper         // Executor所属的管理者
+	Name                 string          // 执行器名称
+	AppList              *gmap.StrAnyMap // 保存的App列表，key: appName, value: appContainer
+	AppsRunning          *gmap.StrAnyMap // 当前正在运行中的App
 }
 
 /*
-Executor工厂
+  Executor工厂
 */
 func NewExecutor(execName string, k IKeeper) *Executor {
 	return &Executor{
 		Keeper:      k,
 		Name:        execName,
-		AppList:     gtree.NewAVLTree(gutil.ComparatorString, true),
-		AppsRunning: garray.NewStrArray(true),
+		AppList:     gmap.NewStrAnyMap(true),
+		AppsRunning: gmap.NewStrAnyMap(true),
 	}
 }
 
-/*
-  StopExecutor 停止执行当前Executor；
-  会关闭所有正在运行的App。
+// Clone 克隆Executor
+func (that *Executor) Clone() (process.IProc, error) {
+	e := NewExecutor(that.Name, that.Keeper)
+	e.AppList = that.AppList
+	proc, err := that.ProcessPlus.Clone()
+	e.ProcessPlus, _ = proc.(*process.ProcessPlus)
+	return e, err
+}
+
+/* TODO:
+StopExecutor 停止执行当前Executor；
+会关闭所有正在运行的App。
 */
 func (that *Executor) StopExecutor() {
 	for _, app := range that.AppList.Map() {
@@ -173,6 +182,8 @@ func (that *Executor) StopApp(name string) error {
 		err := ac.App.Exit()
 		ac.State = process.Stopped
 		ac.StopTime = gtime.Now()
+		// 更新AppsRunning列表
+		that.AppsRunning.Remove(ac.App.AppName())
 		return err
 	}
 	return nil
@@ -195,7 +206,10 @@ func (that *Executor) StartApp(name string) error {
 		if e != nil && a1.State != process.Stopping {
 			a1.State = process.Stopped
 			logger.Warningf("App:[%v] 启动失败: %v", a1.App.AppName(), e)
+			return
 		}
+		// 更新AppsRunning列表
+		that.AppsRunning.Set(a1.App.AppName(), struct{}{})
 	}(ac)
 	return nil
 }
@@ -231,7 +245,7 @@ func (that *Executor) StartAllApps() {
 					logger.Warningf("App:[%v] Start Fails: %v", a1.App.AppName(), err)
 				} else {
 					// 在当前子进程的运行Executor中记录已运行的app
-					that.AppsRunning.Append(a1.App.AppName())
+					that.AppsRunning.Set(a1.App.AppName(), struct{}{})
 				}
 			}(a)
 		}
@@ -325,8 +339,12 @@ func (that *Executor) NewChildProcForStart(configFilePath string) {
 		*/
 		p.StartProc(true)
 		// 主进程中，保存已启动的App列表
-		that.AppsRunning.Append(appNameList...)
+		for _, appName := range appNameList {
+			that.AppsRunning.Set(appName, struct{}{})
+		}
 		// 主进程中，保存对应的子进程的Pid
 		that.Pid = p.Process.Pid
+		// 主进程中，Executor设置其对应的进程
+		that.ProcessPlus = p
 	}
 }

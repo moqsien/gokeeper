@@ -188,15 +188,17 @@ func (that *Keeper) RunExecutors() {
 		// 多进程模式下，且在主进程中，新建子进程来执行所有Executor
 		// TODO: 多进程模式下，平滑重启文件描述符继承
 		// err := that.inheritListenerList()
-		that.ExecutorList.Iterator(func(_ interface{}, v interface{}) bool {
+		that.Manager.Iterator(func(_ string, v interface{}) bool {
 			ke := v.(*kexecutor.Executor)
 			// 会将对应的Executor名称和需要启动的App传给子进程，注意，并不一定是启动所有的App
 			ke.NewChildProcForStart(that.KConfigPath)
+			// 新启动的Executor加入正在运行Executors列表
+			that.ExecutorsRunning.Set(ke.Name, ke)
 			return true
 		})
 	} else if that.ProcMode == ktype.MultiProcs && !that.IsMaster() {
 		// 多进程模式下，且在子进程中，执行对应的Executor中的所有App
-		if exec, existed := that.ExecutorList.Search(that.CurrentExecutor); existed {
+		if exec, existed := that.Manager.Search(that.CurrentExecutor); existed {
 			ke, ok := exec.(kexecutor.Executor)
 			if ok {
 				ke.StartAllApps()
@@ -205,7 +207,7 @@ func (that *Keeper) RunExecutors() {
 		}
 	} else {
 		// 单进程模式下，直接在主进程中启动所有App
-		that.ExecutorList.Iterator(func(_ interface{}, v interface{}) bool {
+		that.Manager.Iterator(func(_ string, v interface{}) bool {
 			ke := v.(*kexecutor.Executor)
 			ke.StartAllApps()
 			ke.Pid = os.Getpid()

@@ -28,18 +28,22 @@ type StopFunc func(k *Keeper) bool
 
 /*
   Keeper 微服务管理者，主要是进程管理；
-  主要功能有：进程开启、停止；交互式shell；平滑重启
+  主要功能有：
+    进程开启、停止、重启——process.Manager；
+	交互式shell命令——KCtrl；
+	平滑重启——Kgrace；
+	命令行参数解析——cobra.Command；
 */
 type Keeper struct {
 	*cobra.Command                    // 命令行参数解析
 	*process.Manager                  // 进程管理者：保存所有Executor, Executor实现process.IProc接口
-	ExecutorsRunning *gmap.StrAnyMap  // 正在运行的Executors列表
-	CurrentExecutor  string           // 子进程中正在执行的Executor
+	ExecutorsRunning *gmap.StrAnyMap  // 主进程中，记录正在运行的Executors列表
+	CurrentExecutor  string           // 子进程中，记录正在执行的Executor
 	KeeperName       string           // 微服务管理者keeper的名称
 	KeeperIsMaster   bool             // 是否为主进程
 	KConfigPath      string           // 配置文件路径
 	KConfig          *gcfg.Config     // keeper的配置信息
-	AppsToOperate    *garray.StrArray // 需要启动或停止的App的名称列表
+	AppsToOperate    *garray.StrArray // 记录当前需要启动或停止的App的名称列表
 	PidFilePath      string           // 主进程的pid文件保存路径
 	ProcMode         ktype.ProcMode   // 进程模式，MultiProcs:多进程模式；SingleProc:单进程模式, 默认单进程
 	StartFunction    StartFunc        // keeper启动方法

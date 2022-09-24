@@ -4,18 +4,17 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"strings"
 
-	"github.com/gin-gonic/gin"
-	"github.com/gogf/gf/frame/g"
 	kexecutor "github.com/moqsien/gokeeper/kexecutor"
-	"github.com/moqsien/gokeeper/ktype"
+	ktype "github.com/moqsien/gokeeper/ktype"
 	kutils "github.com/moqsien/gokeeper/kutils"
 	goktrl "github.com/moqsien/goktrl"
 	logger "github.com/moqsien/processes/logger"
 )
 
-func (that *Keeper) KCtrlCheckExecutor(k *goktrl.KtrlContext) bool {
-	eName := k.Parser.GetOpt("executor")
+func (that *Keeper) KCtrlCheckExecutor(c *goktrl.Context) bool {
+	eName := c.Parser.GetOpt("executor")
 	_, ok := that.Manager.Search(eName)
 	if !ok {
 		fmt.Printf("Executor: [%s] does not exist", eName)
@@ -28,7 +27,7 @@ func (that *Keeper) KCtrlCheckExecutor(k *goktrl.KtrlContext) bool {
 */
 
 func (that *Keeper) kCtrlVersion() {
-	versionFun := func(k *goktrl.KtrlContext) {
+	versionFun := func(k *goktrl.Context) {
 		that.Version()
 	}
 
@@ -36,7 +35,7 @@ func (that *Keeper) kCtrlVersion() {
 		Name:        "version",
 		Help:        "show keeper version info",
 		Func:        versionFun,
-		KtrlHandler: func(c *gin.Context) {},
+		KtrlHandler: func(c *goktrl.Context) {},
 		SocketName:  that.KCtrlSocket,
 	})
 }
@@ -53,8 +52,8 @@ func (that *Keeper) kCtrlInfo() {
 
 	var Result = []*Data{} // 客户端和服务端在不同进程中，此处无影响
 
-	info := func(k *goktrl.KtrlContext) {
-		result, err := k.GetResult()
+	info := func(c *goktrl.Context) {
+		result, err := c.GetResult()
 		if err != nil {
 			logger.Error(err)
 			return
@@ -64,10 +63,10 @@ func (that *Keeper) kCtrlInfo() {
 			logger.Error(err)
 			return
 		}
-		k.Table.AddRowsByListObject(Result)
+		c.Table.AddRowsByListObject(Result)
 	}
 
-	handler := func(c *gin.Context) {
+	handler := func(c *goktrl.Context) {
 		that.Manager.Iterator(func(_ string, v interface{}) bool {
 			executor := v.(*kexecutor.Executor)
 			Result = append(Result, &Data{
@@ -100,17 +99,22 @@ func (that *Keeper) kCtrlInfo() {
 
 // KtrlStartExecutor 启动一个Executor，可以指定启动一部分app
 func (that *Keeper) KtrlStartExecutor() {
-	start := func(k *goktrl.KtrlContext) {
+	type OptsStartExecutor struct {
+		*goktrl.KtrlOption
+		Executor string `alias:"e" must:"true" descr:"executor from keeper."`
+	}
+	start := func(c *goktrl.Context) {
 		// 单进程不能启动新Executor
 		if that.IsSingleProcMode() {
 			fmt.Println("Single-process mode!")
 			return
 		}
 		// 必须传入存在的Executor名称
-		if ok := that.KCtrlCheckExecutor(k); !ok {
+		if _, found := that.Manager.Search(c.Parser.GetOpt("executor")); !found {
+			fmt.Printf("Executor: [%s] does not exist", c.Parser.GetOpt("executor"))
 			return
 		}
-		result, err := k.GetResult()
+		result, err := c.GetResult()
 		if err != nil {
 			logger.Error(err)
 			return
@@ -118,103 +122,120 @@ func (that *Keeper) KtrlStartExecutor() {
 		fmt.Println(string(result))
 	}
 
-	handler := func(c *gin.Context) {
+	handler := func(c *goktrl.Context) {
+		// TODO: appNames
 		if eName := c.Query("executor"); len(eName) > 0 {
 			c.String(http.StatusOK, that.StartExecutor(eName))
 		}
 	}
 
 	that.KCtrl.AddKtrlCommand(&goktrl.KCommand{
-		Name: "startexc",
-		Help: "【Start a not running Executor】 Usage: startexc -e=<executor> [-a=<app,app1>]",
-		Func: start,
-		Opts: &g.MapStrBool{
-			"executor,e": true,
-			"apps,app,a": true, // 可选，如果传了，则只启动指定的App，没传则启动所有App
-		},
-		KtrlHandler: handler,
-		SocketName:  that.KCtrlSocket,
+		Name:            "startexc",
+		Help:            "start an executor.",
+		Func:            start,
+		Opts:            &OptsStartExecutor{},
+		KtrlHandler:     handler,
+		SocketName:      that.KCtrlSocket,
+		ArgsDescription: "apps to start.",
 	})
 }
 
 // KtrlStartApp 启动App，注意必须指定一个已经启动的Executor
 func (that *Keeper) KtrlStartApps() {
-	start := func(k *goktrl.KtrlContext) {
+	type OptsStartApps struct {
+		*goktrl.KtrlOption
+		Executor string `alias:"e" must:"true" descr:"executor from keeper."`
+	}
+	start := func(c *goktrl.Context) {
+		var (
+			result []byte
+			err    error
+		)
 		if that.ProcMode == ktype.MultiProcs {
 			// 多进程模式下，必须传入存一个在的Executor名称
-			if ok := that.KCtrlCheckExecutor(k); !ok {
+			result, err = c.GetResult(c.Parser.GetOpt("executor"))
+		} else {
+			// 单进程模式下启动apps, Executor任意传
+			result, err = c.GetResult()
+		}
+		if err != nil {
+			if strings.Contains(err.Error(), "connect: no such file or directory") {
+				fmt.Printf("Executor: %v is not running!\n", c.Parser.GetOpt("executor"))
 				return
 			}
-		} else {
-			// 单进程模式下启动apps，无需传入Executor名称
+			fmt.Println(err)
+			return
 		}
+		fmt.Println(string(result))
 	}
-	handler := func(c *gin.Context) {
+	handler := func(c *goktrl.Context) {
 
 	}
 
 	that.KCtrl.AddKtrlCommand(&goktrl.KCommand{
-		Name: "startapp",
-		Help: "【Start apps】 Usage: startapp -e=<executor> -a=<app,app1>",
-		Func: start,
-		Opts: &g.MapStrBool{
-			"executor,e": true, // 必须指定app所属的executor
-			"apps,app,a": true,
-		},
-		KtrlHandler: handler,
-		SocketName:  that.KCtrlSocket,
+		Name:            "startapp",
+		Help:            "start apps.",
+		Func:            start,
+		Opts:            &OptsStartApps{},
+		KtrlHandler:     handler,
+		SocketName:      that.KCtrlSocket,
+		ArgsMust:        true,
+		ArgsDescription: "apps to start.",
 	})
 }
 
 // KtrlStopExecutor 停止一个Executor
 func (that *Keeper) KtrlStopExecutor() {
-	stop := func(k *goktrl.KtrlContext) {
+	type OptsStopExecutor struct {
+		*goktrl.KtrlOption
+		Executor string `alias:"e" must:"true" descr:"executor from keeper."`
+	}
+	stop := func(k *goktrl.Context) {
 
 	}
-	handler := func(c *gin.Context) {
+	handler := func(c *goktrl.Context) {
 
 	}
 
 	that.KCtrl.AddKtrlCommand(&goktrl.KCommand{
-		Name: "stopexc",
-		Help: "【Stop an Executor】 Usage: stopexc -e=<executor>",
-		Func: stop,
-		Opts: &g.MapStrBool{
-			"executor,e": true,
-		},
+		Name:        "stopexc",
+		Help:        "stop an Executor.",
+		Func:        stop,
+		Opts:        &OptsStopExecutor{},
 		KtrlHandler: handler,
 		SocketName:  that.KCtrlSocket,
 	})
 }
 
 func (that *Keeper) KtrlStopApps() {
-	stop := func(k *goktrl.KtrlContext) {
+	type OptsStopApps struct {
+		*goktrl.KtrlOption
+		Executor string `alias:"e" must:"true" descr:"executor from keeper."`
+	}
+	stop := func(k *goktrl.Context) {
 
 	}
-	handler := func(c *gin.Context) {
+	handler := func(c *goktrl.Context) {
 
 	}
 
 	that.KCtrl.AddKtrlCommand(&goktrl.KCommand{
-		Name: "stopapp",
-		Help: "【Stop apps】 Usage: stopapp -e=<executor> -a=<app,app1>",
-		Func: stop,
-		Opts: &g.MapStrBool{
-			"executor,e": true,
-			"apps,app,a": true,
-		},
+		Name:        "stopapp",
+		Help:        "stop apps.",
+		Func:        stop,
+		Opts:        &OptsStopApps{},
 		KtrlHandler: handler,
 		SocketName:  that.KCtrlSocket,
 	})
 }
 
 func (that *Keeper) KtrlReload() {
-	reload := func(k *goktrl.KtrlContext) {}
-	handler := func(c *gin.Context) {}
+	reload := func(k *goktrl.Context) {}
+	handler := func(c *goktrl.Context) {}
 
 	that.KCtrl.AddKtrlCommand(&goktrl.KCommand{
 		Name:        "reload",
-		Help:        "reload apps or an executor",
+		Help:        "reload apps or an executor.",
 		Func:        reload,
 		KtrlHandler: handler,
 		SocketName:  that.KCtrlSocket,
@@ -222,8 +243,8 @@ func (that *Keeper) KtrlReload() {
 }
 
 func (that *Keeper) KtrlDebug() {
-	debug := func(k *goktrl.KtrlContext) {}
-	handler := func(c *gin.Context) {}
+	debug := func(k *goktrl.Context) {}
+	handler := func(c *goktrl.Context) {}
 
 	that.KCtrl.AddKtrlCommand(&goktrl.KCommand{
 		Name:        "debug",

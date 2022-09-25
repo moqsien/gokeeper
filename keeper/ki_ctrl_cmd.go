@@ -32,11 +32,10 @@ func (that *Keeper) kCtrlVersion() {
 	}
 
 	that.KCtrl.AddKtrlCommand(&goktrl.KCommand{
-		Name:        "version",
-		Help:        "show keeper version info",
-		Func:        versionFun,
-		KtrlHandler: func(c *goktrl.Context) {},
-		SocketName:  that.KCtrlSocket,
+		Name:       "version",
+		Help:       "show keeper version info.",
+		Func:       versionFun,
+		SocketName: that.KCtrlSocket,
 	})
 }
 
@@ -100,8 +99,7 @@ func (that *Keeper) kCtrlInfo() {
 // KtrlStartExecutor 启动一个Executor，可以指定启动一部分app
 func (that *Keeper) KtrlStartExecutor() {
 	type OptsStartExecutor struct {
-		*goktrl.KtrlOption
-		Executor string `alias:"e" must:"true" descr:"executor from keeper."`
+		Executor string `alias:"e" required:"true" descr:"executor from keeper."`
 	}
 	start := func(c *goktrl.Context) {
 		// 单进程不能启动新Executor
@@ -143,8 +141,7 @@ func (that *Keeper) KtrlStartExecutor() {
 // KtrlStartApp 启动App，注意必须指定一个已经启动的Executor
 func (that *Keeper) KtrlStartApps() {
 	type OptsStartApps struct {
-		*goktrl.KtrlOption
-		Executor string `alias:"e" must:"true" descr:"executor from keeper."`
+		Executor string `alias:"e" required:"true" descr:"executor from keeper."`
 	}
 	start := func(c *goktrl.Context) {
 		var (
@@ -179,7 +176,7 @@ func (that *Keeper) KtrlStartApps() {
 		Opts:            &OptsStartApps{},
 		KtrlHandler:     handler,
 		SocketName:      that.KCtrlSocket,
-		ArgsMust:        true,
+		ArgsRequired:    true,
 		ArgsDescription: "apps to start.",
 	})
 }
@@ -187,8 +184,7 @@ func (that *Keeper) KtrlStartApps() {
 // KtrlStopExecutor 停止一个Executor
 func (that *Keeper) KtrlStopExecutor() {
 	type OptsStopExecutor struct {
-		*goktrl.KtrlOption
-		Executor string `alias:"e" must:"true" descr:"executor from keeper."`
+		Executor string `alias:"e" required:"true" descr:"executor from keeper."`
 	}
 	stop := func(k *goktrl.Context) {
 
@@ -209,8 +205,7 @@ func (that *Keeper) KtrlStopExecutor() {
 
 func (that *Keeper) KtrlStopApps() {
 	type OptsStopApps struct {
-		*goktrl.KtrlOption
-		Executor string `alias:"e" must:"true" descr:"executor from keeper."`
+		Executor string `alias:"e" required:"true" descr:"executor from keeper."`
 	}
 	stop := func(k *goktrl.Context) {
 

@@ -4,7 +4,7 @@ go 1.18
 
 require (
 	github.com/gogf/gf v1.16.9
-	github.com/moqsien/goktrl v1.3.2
+	github.com/moqsien/goktrl v1.3.6
 	github.com/moqsien/processes v1.0.3
 	github.com/spf13/cobra v1.5.0
 )

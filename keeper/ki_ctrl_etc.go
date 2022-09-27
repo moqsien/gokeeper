@@ -13,16 +13,22 @@ import (
 // StartExecutor 交互式shell开启Executor，只在主进程中执行
 func (that *Keeper) StartExecutor(execName string, appNames ...string) (r string) {
 	if that.IsMutilProcModeAndInMaster() {
-		if _, ok := that.Manager.Search(execName); !ok {
-			r = fmt.Sprintf("Executor: [%s] is already running", execName)
+		if _, ok := that.ExecutorsRunning.Search(execName); !ok {
+			r = fmt.Sprintf("Executor: [%s] is already running!", execName)
 		} else {
-			executor, _ := that.Manager.Search(execName)
+			executor, found := that.Manager.Search(execName)
+			if !found {
+				r = fmt.Sprintf("Executor: [%s] is not found!", execName)
+				return
+			}
 			if that.IsMutilProcModeAndInMaster() {
 				that.SetAppsToOperate(appNames)
 				executor.(*kexecutor.Executor).NewChildProcForStart(that.KConfigPath)
 			}
 			r = fmt.Sprintf("Executor: [%s] started!", execName)
 		}
+	} else if that.IsSingleProcMode() {
+		r = "Cannot start executor in single process mode."
 	}
 	return
 }

@@ -364,5 +364,7 @@ func (that *Executor) NewChildProcForStart(configFilePath string) {
 		that.Pid = p.Process.Pid
 		// 主进程中，Executor设置其对应的进程
 		that.ProcessPlus = p
+		// 主进程中，加入正在运行的Executor列表
+		that.Keeper.GetExecutorsRunning().Set(that.Name, that)
 	}
 }

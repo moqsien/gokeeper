@@ -193,8 +193,6 @@ func (that *Keeper) RunExecutors() {
 			// NewChildProcForStart方法会将对应的Executor名称和需要启动的App传给子进程，注意，并不一定是启动所有的App；
 			// 如果当前迭代到的Executor中没有找到需要执行的App，则当前Executor不会执行；
 			ke.NewChildProcForStart(that.KConfigPath)
-			// 新启动的Executor加入正在运行Executors列表
-			that.ExecutorsRunning.Set(ke.Name, ke)
 			return true
 		})
 	} else if that.ProcMode == ktype.MultiProcs && !that.IsMaster() {
